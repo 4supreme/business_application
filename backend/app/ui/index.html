@@ -1,0 +1,531 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <title>Business MVP — Панель</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --bg:#0b1220; --card:#111827; --muted:#9ca3af; --line:#1f2937;
+      --text:#e5e7eb; --accent:#2563eb; --ok:#10b981; --err:#ef4444; --round:14px;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.4 -apple-system, system-ui, Segoe UI, Roboto, Arial; }
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 24px; }
+    .topbar { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:18px;}
+    h1 { margin:0; font-size:22px; }
+    nav { display:flex; gap:8px; flex-wrap:wrap; }
+    .tab { border:1px solid var(--line); padding:10px 14px; border-radius:999px; color:#cbd5e1; background:#0f172a; cursor:pointer; }
+    .tab.active { background: var(--accent); color:white; border-color:transparent; }
+    .grid { display:grid; gap:16px; grid-template-columns: repeat(auto-fit, minmax(320px,1fr)); }
+    .card { background: var(--card); border:1px solid var(--line); border-radius: var(--round); padding:16px; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
+    .title { margin:0 0 12px; font-weight:600; }
+    label { display:block; color:var(--muted); font-size:12px; margin:10px 0 4px; }
+    input, select { width:100%; background:#0f172a; color:var(--text); border:1px solid #243244; border-radius:10px; padding:10px 12px; }
+    input::placeholder { color:#6b7280; }
+    .row3 { display:grid; gap:8px; grid-template-columns: 1fr 1fr 1fr; margin-top:8px; }
+    .row2 { display:grid; gap:8px; grid-template-columns: 1fr 1fr; margin-top:8px; }
+    button { padding:10px 14px; border-radius:10px; border:0; background:var(--accent); color:#fff; cursor:pointer; }
+    .btn-line { background:#0f172a; border:1px solid #243244; }
+    .btn-dark { background:#0b1020; }
+    .muted { color:var(--muted); font-size:12px; }
+    .ok { color: var(--ok); }
+    .err { color: var(--err); white-space: pre-wrap; }
+    table { width:100%; border-collapse: collapse; margin-top:10px; }
+    th, td { border-bottom:1px solid var(--line); padding:8px 6px; text-align:left; }
+    .right { text-align:right; }
+    .section { display:none; }
+    .section.active { display:block; }
+    .pill { padding:4px 8px; border-radius:999px; font-size:12px; border:1px solid #243244; background:#0f172a; color:#cbd5e1; }
+    .sp { height:8px; }
+    .kpi { display:flex; gap:12px; flex-wrap:wrap; }
+    .kpi .card { flex:1; min-width:220px; }
+    .kpi .val { font-size:22px; font-weight:700; margin-top:4px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <h1>Business MVP — Панель</h1>
+      <nav id="tabs">
+        <button class="tab active" data-target="home">Главная</button>
+        <button class="tab" data-target="purchase">Закуп</button>
+        <button class="tab" data-target="sale">Продажа</button>
+        <button class="tab" data-target="stock">Склад</button>
+        <button class="tab" data-target="cash">Банк и касса</button>
+        <button class="tab" data-target="reports">Руководство</button>
+        <button class="tab" data-target="catalog">Каталог</button>
+      </nav>
+    </div>
+
+    <!-- Главная -->
+    <section id="home" class="section active">
+      <div class="grid">
+        <div class="card">
+          <h3 class="title">Быстрые действия</h3>
+          <div class="row2">
+            <button onclick="go('purchase')" class="btn-line">Создать приход</button>
+            <button onclick="go('sale')" class="btn-line">Создать продажу</button>
+          </div>
+          <div class="sp"></div>
+          <div class="row2">
+            <button onclick="loadProducts()" class="btn-dark">Обновить остатки</button>
+            <button onclick="loadBalance()" class="btn-dark">Обновить баланс</button>
+          </div>
+        </div>
+        <div class="card">
+          <h3 class="title">Подсказки</h3>
+          <ul class="muted">
+            <li>Сначала добавьте товары в <span class="pill">Каталог</span>.</li>
+            <li>Проведите <span class="pill">Закуп</span> — появятся остатки.</li>
+            <li>Оформите <span class="pill">Продажу</span> — увидите выручку и GP.</li>
+            <li>Внесите поступления/выплаты в <span class="pill">Банк и касса</span> — будет баланс денег.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="kpi">
+        <div class="card">
+          <div class="muted">Касса</div>
+          <div id="kpi_cash" class="val">0</div>
+        </div>
+        <div class="card">
+          <div class="muted">Банк</div>
+          <div id="kpi_bank" class="val">0</div>
+        </div>
+        <div class="card">
+          <div class="muted">Итого денег</div>
+          <div id="kpi_total" class="val">0</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Закуп -->
+    <section id="purchase" class="section">
+      <div class="grid">
+        <div class="card">
+          <h3 class="title">Приход (закупка)</h3>
+          <label>Дата документа</label>
+          <input id="in_date" type="date" />
+          <label>Поставщик (последние 5 или свой)</label>
+          <input id="in_vendor" list="vendor_list" placeholder="Например: ТОО Алматы" />
+          <datalist id="vendor_list"></datalist>
+
+          <div id="in_items"></div>
+          <div class="row2">
+            <button class="btn-line" onclick="addInRow()">+ Позиция</button>
+            <button onclick="createPurchase()">Провести приход</button>
+          </div>
+          <div class="muted">Указывайте: <b>Товар</b>, <b>Кол-во</b>, <b>Цена закупки</b>.</div>
+          <div id="in_msg" class="muted"></div>
+        </div>
+
+        <div class="card">
+          <h3 class="title">Справка по товарам</h3>
+          <button class="btn-line" onclick="loadProducts()">Обновить список</button>
+          <table id="prod_table_small">
+            <thead><tr><th>ID</th><th>Товар</th><th class="right">Остаток</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Продажа -->
+    <section id="sale" class="section">
+      <div class="grid">
+        <div class="card">
+          <h3 class="title">Продажа</h3>
+          <label>ID клиента (необязательно)</label>
+          <input id="out_client" placeholder="например 1" />
+          <div id="out_items"></div>
+          <div class="row2">
+            <button class="btn-line" onclick="addOutRow()">+ Позиция</button>
+            <button onclick="createSale()">Провести продажу</button>
+          </div>
+          <div class="muted">Указывайте: <b>Товар</b>, <b>Кол-во</b>, <b>Цена продажи</b>.</div>
+          <div id="out_msg" class="muted"></div>
+        </div>
+        <div class="card">
+          <h3 class="title">Подсказка</h3>
+          <div class="muted">Себестоимость считается по средней. Остатки списываются автоматически.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Склад -->
+    <section id="stock" class="section">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+          <h3 class="title">Остатки на складе</h3>
+          <div style="display:flex;gap:8px;">
+            <input id="stock_search" placeholder="Поиск по названию товара..." oninput="filterStock()" style="min-width:260px" />
+            <button class="btn-line" onclick="loadProducts()">Обновить</button>
+          </div>
+        </div>
+        <table id="prod_table">
+          <thead><tr><th>ID</th><th>Название товара</th><th>SKU</th><th class="right">Остаток</th><th class="right">Сред. себестоимость</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <div id="stock_msg" class="muted"></div>
+      </div>
+    </section>
+
+    <!-- Банк и касса -->
+    <section id="cash" class="section">
+      <div class="grid">
+        <div class="card">
+          <h3 class="title">Поступление / Выплата</h3>
+          <div class="row3">
+            <div>
+              <label>Дата</label>
+              <input id="cash_date" type="date" />
+            </div>
+            <div>
+              <label>Счёт</label>
+              <select id="cash_account">
+                <option value="cash">Касса</option>
+                <option value="bank">Банк</option>
+              </select>
+            </div>
+            <div>
+              <label>Сумма</label>
+              <input id="cash_amount" type="number" step="any" min="0" placeholder="0" />
+            </div>
+          </div>
+
+          <div class="row2">
+            <div>
+              <label>Контрагент (от кого/кому)</label>
+              <input id="cash_counterparty" placeholder="например: Клиент, Поставщик" />
+            </div>
+            <div>
+              <label>Назначение / Примечание</label>
+              <input id="cash_note" placeholder="например: Оплата за товар" />
+            </div>
+          </div>
+
+          <div class="row2">
+            <button class="btn-line" onclick="createCash('in')">Приход денег</button>
+            <button onclick="createCash('out')">Расход денег</button>
+          </div>
+          <div id="cash_msg" class="muted"></div>
+        </div>
+
+        <div class="card">
+          <h3 class="title">Баланс</h3>
+          <div class="kpi">
+            <div>
+              <div class="muted">Касса</div>
+              <div id="bal_cash" class="val">0</div>
+            </div>
+            <div>
+              <div class="muted">Банк</div>
+              <div id="bal_bank" class="val">0</div>
+            </div>
+            <div>
+              <div class="muted">Итого</div>
+              <div id="bal_total" class="val">0</div>
+            </div>
+          </div>
+          <div class="sp"></div>
+          <button class="btn-line" onclick="loadBalance()">Обновить баланс</button>
+          <div class="sp"></div>
+          <h4 class="title">Последние операции</h4>
+          <table id="cash_last">
+            <thead><tr><th>Дата</th><th>Счёт</th><th>Направление</th><th class="right">Сумма</th><th>Контрагент</th><th>Примечание</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Руководство (пока пусто, под отчёты) -->
+    <section id="reports" class="section">
+      <div class="card">
+        <h3 class="title">Руководство — отчёты</h3>
+        <p class="muted">Здесь появится: валовая прибыль по периодам, отчёт по продажам, товары с нулевым остатком, дебиторка/кредиторка и т.д.</p>
+        <p class="muted">Когда скажешь — добавим первый отчёт.</p>
+      </div>
+    </section>
+
+    <!-- Каталог -->
+    <section id="catalog" class="section">
+      <div class="grid">
+        <div class="card">
+          <h3 class="title">Создать товар</h3>
+          <label>Название товара</label><input id="p_name" placeholder="Например: Масло 5W-30" />
+          <div class="row2">
+            <div>
+              <label>Артикул (SKU)</label><input id="p_sku" />
+            </div>
+            <div>
+              <label>Единица измерения</label><input id="p_unit" value="шт" />
+            </div>
+          </div>
+          <label>Штрихкод</label><input id="p_barcode" />
+          <div class="row2">
+            <button class="btn-line" onclick="clearProductForm()">Очистить</button>
+            <button onclick="createProduct()">Создать</button>
+          </div>
+          <div id="p_msg" class="muted"></div>
+        </div>
+        <div class="card">
+          <h3 class="title">Список товаров</h3>
+          <button class="btn-line" onclick="loadProducts()">Обновить</button>
+          <table id="prod_table_catalog">
+            <thead><tr><th>ID</th><th>Название</th><th>Ед.</th><th>Штрихкод</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </div>
+
+<script>
+/* ---------- helpers ---------- */
+const api = (path, opts={}) =>
+  fetch(path, { headers: { 'Content-Type': 'application/json' }, ...opts })
+  .then(r => { if(!r.ok) return r.text().then(t=>{ throw new Error(t||r.statusText); }); return r.json(); });
+
+const el = (tag, props={}, children=[]) => {
+  const e = document.createElement(tag);
+  Object.entries(props).forEach(([k,v]) => (k in e ? e[k]=v : e.setAttribute(k,v)));
+  children.forEach(c => e.appendChild(c));
+  return e;
+};
+
+/* ---------- tabs ---------- */
+function go(id){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.dataset.target===id));
+  document.querySelectorAll('.section').forEach(s=>s.classList.toggle('active', s.id===id));
+  if(id==='stock'||id==='catalog'||id==='purchase') loadProducts();
+  if(id==='purchase') loadRecentVendors();
+  if(id==='cash'||id==='home') loadBalance();
+}
+document.getElementById('tabs').addEventListener('click', e=>{
+  if(e.target.classList.contains('tab')) go(e.target.dataset.target);
+});
+
+/* ---------- global cache ---------- */
+let PRODUCTS = [];
+
+/* ---------- products ---------- */
+async function createProduct() {
+  const body = {
+    name: document.getElementById('p_name').value.trim(),
+    sku: document.getElementById('p_sku').value.trim() || null,
+    unit: document.getElementById('p_unit').value.trim() || "шт",
+    barcode: document.getElementById('p_barcode').value.trim() || null,
+  };
+  const msg = document.getElementById('p_msg');
+  try {
+    if(!body.name){ msg.className='err'; msg.textContent='Укажите название товара'; return; }
+    const res = await api('/products/', { method:'POST', body: JSON.stringify(body) });
+    msg.className='ok'; msg.textContent = `Создан товар #${res.id}: ${res.name}`;
+    clearProductForm();
+    loadProducts();
+  } catch(e){ msg.className='err'; msg.textContent = e.message; }
+}
+function clearProductForm(){
+  ['p_name','p_sku','p_barcode'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('p_unit').value='шт';
+}
+
+/* ---------- purchase ---------- */
+function productSelect(value=''){
+  const s = el('select');
+  s.appendChild(el('option',{value:''},[document.createTextNode('Товар…')]));
+  PRODUCTS.forEach(p=>{
+    s.appendChild(el('option',{value:p.id},[document.createTextNode(`#${p.id} — ${p.name}`)]));
+  });
+  s.value = value;
+  return s;
+}
+function addInRow() {
+  const wrap = document.getElementById('in_items');
+  const row = el('div', { className:'row3' });
+  const sel = productSelect();
+  const qty = el('input',{placeholder:'Кол-во', type:'number', step:'any', min:'0'});
+  const price = el('input',{placeholder:'Цена закупки', type:'number', step:'any', min:'0'});
+  row.appendChild(sel); row.appendChild(qty); row.appendChild(price);
+  wrap.appendChild(row);
+}
+async function loadRecentVendors(){
+  try{
+    const list = await api('/vendors/recent');
+    const dl = document.getElementById('vendor_list');
+    dl.innerHTML = '';
+    list.forEach(v=>{
+      const o = document.createElement('option');
+      o.value = v; dl.appendChild(o);
+    });
+  }catch(e){ console.warn('vendors:', e.message); }
+}
+async function createPurchase() {
+  const rawDate = document.getElementById('in_date').value;
+  const vendor = document.getElementById('in_vendor').value.trim() || null;
+  const rows = [...document.getElementById('in_items').querySelectorAll('.row3')];
+  const items = rows.map(r=>{
+    const [sel,qty,price] = r.children;
+    return { product_id: Number(sel.value), qty: Number(qty.value), price: Number(price.value) };
+  }).filter(x => x.product_id && x.qty>0 && x.price>=0);
+  const msg = document.getElementById('in_msg');
+  if(items.length===0){ msg.className='err'; msg.textContent='Добавьте позиции (выберите товар, количество и цену)'; return; }
+  try{
+    const payload = { vendor, items };
+    if(rawDate) payload.date = rawDate;
+    const res = await api('/purchase/', { method:'POST', body: JSON.stringify(payload)});
+    msg.className='ok'; msg.textContent=`Приход #${res.id} на сумму ${res.total_amount}`;
+    document.getElementById('in_items').innerHTML=''; addInRow();
+    loadProducts(); loadRecentVendors();
+  }catch(e){ msg.className='err'; msg.textContent=e.message; }
+}
+
+/* ---------- sale ---------- */
+function addOutRow() {
+  const wrap = document.getElementById('out_items');
+  const row = el('div', { className:'row3' });
+  const sel = productSelect();
+  const qty = el('input',{placeholder:'Кол-во', type:'number', step:'any', min:'0'});
+  const price = el('input',{placeholder:'Цена продажи', type:'number', step:'any', min:'0'});
+  row.appendChild(sel); row.appendChild(qty); row.appendChild(price);
+  wrap.appendChild(row);
+}
+async function createSale() {
+  const cliRaw = document.getElementById('out_client').value.trim();
+  const client_id = cliRaw ? Number(cliRaw) : null;
+  const rows = [...document.getElementById('out_items').querySelectorAll('.row3')];
+  const items = rows.map(r=>{
+    const [sel,qty,price] = r.children;
+    return { product_id: Number(sel.value), qty: Number(qty.value), price: Number(price.value) };
+  }).filter(x => x.product_id && x.qty>0 && x.price>=0);
+  const msg = document.getElementById('out_msg');
+  if(items.length===0){ msg.className='err'; msg.textContent='Добавьте позиции к продаже'; return; }
+  try{
+    const res = await api('/sale/', { method:'POST', body: JSON.stringify({ client_id, items })});
+    msg.className='ok';
+    msg.textContent=`Продажа #${res.id}: выручка ${res.total_amount}, COGS ${res.total_cogs}, GP ${res.gross_profit}`;
+    document.getElementById('out_items').innerHTML=''; addOutRow();
+    loadProducts();
+  }catch(e){ msg.className='err'; msg.textContent=e.message; }
+}
+
+/* ---------- stock / catalog lists ---------- */
+let PRODUCTS_CACHE = [];
+function renderSmallList(list){
+  const tb = document.querySelector('#prod_table_small tbody');
+  tb.innerHTML='';
+  list.forEach(p=>{
+    const tr = el('tr');
+    tr.innerHTML = `<td>${p.id}</td><td>${p.name}</td><td class="right">${p.qty_on_hand}</td>`;
+    tb.appendChild(tr);
+  });
+}
+function renderStock(list){
+  const tb = document.querySelector('#prod_table tbody');
+  tb.innerHTML='';
+  list.forEach(p=>{
+    const tr = el('tr');
+    tr.innerHTML = `<td>${p.id}</td><td>${p.name}</td><td>${p.sku||''}</td>
+      <td class="right">${p.qty_on_hand}</td><td class="right">${p.avg_cost}</td>`;
+    tb.appendChild(tr);
+  });
+  document.getElementById('stock_msg').textContent = `Показано товаров: ${list.length}`;
+}
+function renderCatalog(list){
+  const tb = document.querySelector('#prod_table_catalog tbody');
+  tb.innerHTML='';
+  list.forEach(p=>{
+    const tr = el('tr');
+    tr.innerHTML = `<td>${p.id}</td><td>${p.name}</td><td>${p.unit||''}</td><td>${p.barcode||''}</td>`;
+    tb.appendChild(tr);
+  });
+}
+function filterStock(){
+  const q = document.getElementById('stock_search').value.trim().toLowerCase();
+  const filtered = !q ? PRODUCTS_CACHE : PRODUCTS_CACHE.filter(p => (p.name||'').toLowerCase().includes(q) || String(p.id).includes(q));
+  renderStock(filtered);
+}
+async function loadProducts(){
+  try{
+    const list = await api('/stock/');
+    PRODUCTS_CACHE = list;
+    renderStock(list); renderSmallList(list); renderCatalog(list);
+    document.querySelectorAll('#in_items select, #out_items select').forEach(sel=>{
+      const cur = sel.value;
+      sel.innerHTML = '';
+      const opt0 = document.createElement('option');
+      opt0.value=''; opt0.textContent='Товар…';
+      sel.appendChild(opt0);
+      PRODUCTS_CACHE.forEach(p=>{
+        const o = document.createElement('option');
+        o.value = p.id; o.textContent = `#${p.id} — ${p.name}`;
+        sel.appendChild(o);
+      });
+      sel.value = cur;
+    });
+  }catch(e){ console.error(e); }
+}
+
+/* ---------- treasury (bank & cash) ---------- */
+async function loadBalance(){
+  try{
+    const b = await api('/treasury/balance');
+    document.getElementById('bal_cash').textContent = b.cash.toFixed(2);
+    document.getElementById('bal_bank').textContent = b.bank.toFixed(2);
+    document.getElementById('bal_total').textContent = b.total.toFixed(2);
+    document.getElementById('kpi_cash').textContent = b.cash.toFixed(2);
+    document.getElementById('kpi_bank').textContent = b.bank.toFixed(2);
+    document.getElementById('kpi_total').textContent = b.total.toFixed(2);
+
+    const last = await api('/treasury/last');
+    const tb = document.querySelector('#cash_last tbody');
+    tb.innerHTML = '';
+    last.forEach(r=>{
+      const tr = document.createElement('tr');
+      const d = new Date(r.date);
+      tr.innerHTML = `<td>${d.toISOString().slice(0,10)}</td>
+        <td>${r.account==='cash'?'Касса':'Банк'}</td>
+        <td>${r.direction==='in'?'Приход':'Расход'}</td>
+        <td class="right">${r.amount.toFixed(2)}</td>
+        <td>${r.counterparty||''}</td>
+        <td>${r.note||''}</td>`;
+      tb.appendChild(tr);
+    });
+  }catch(e){ console.error(e); }
+}
+async function createCash(direction){
+  const rawDate = document.getElementById('cash_date').value;
+  const account = document.getElementById('cash_account').value;
+  const amount = Number(document.getElementById('cash_amount').value);
+  const counterparty = document.getElementById('cash_counterparty').value.trim() || null;
+  const note = document.getElementById('cash_note').value.trim() || null;
+  const msg = document.getElementById('cash_msg');
+  if(!amount || amount<=0){ msg.className='err'; msg.textContent='Укажите сумму > 0'; return; }
+  try{
+    const payload = { account, direction, amount, counterparty, note };
+    if(rawDate) payload.date = rawDate;
+    await api('/treasury/txn', { method:'POST', body: JSON.stringify(payload) });
+    msg.className='ok'; msg.textContent='Операция сохранена';
+    document.getElementById('cash_amount').value='';
+    loadBalance();
+  }catch(e){ msg.className='err'; msg.textContent=e.message; }
+}
+
+/* ---------- init ---------- */
+(function initDefaults(){
+  const d = new Date();
+  const pad = n => (n<10?'0':'')+n;
+  const today = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  const el1 = document.getElementById('in_date'); if(el1) el1.value = today;
+  const el2 = document.getElementById('cash_date'); if(el2) el2.value = today;
+})();
+addInRow();
+addOutRow();
+loadProducts();
+loadRecentVendors();
+loadBalance();
+</script>
+</body>
+</html>
