@@ -1,12 +1,21 @@
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.orm import sessionmaker
 
-# Для MVP используем SQLite (файл рядом с проектом)
 SQLALCHEMY_DATABASE_URL = "sqlite:///./app.db"
 
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
-    connect_args={"check_same_thread": False},  # нужно для SQLite в одном процессе
+    connect_args={"check_same_thread": False},
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
+
+def get_db():
+    from fastapi import Depends
+    from sqlalchemy.orm import Session
+    def _get_db():
+        db: Session = SessionLocal()
+        try:
+            yield db
+        finally:
+            db.close()
+    return Depends(_get_db)

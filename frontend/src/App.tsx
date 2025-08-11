@@ -1,3 +1,4 @@
+import React from "react";
 import { NavLink, Route, Routes } from "react-router-dom";
 import Catalog from "./pages/Catalog";
 import Stock from "./pages/Stock";
@@ -5,15 +6,14 @@ import Purchase from "./pages/Purchase";
 import Sale from "./pages/Sale";
 import Cash from "./pages/Cash";
 import Reports from "./pages/Reports";
+import './index.css';
 
-const Tab = ({ to, children }: { to: string; children: any }) => (
+const Tab = ({ to, children }: { to: string; children: React.ReactNode }) => (
   <NavLink
     to={to}
     className={({ isActive }) =>
       `px-3 py-2 rounded-full border border-slate-700 ${
-        isActive
-          ? "bg-blue-600 text-white"
-          : "bg-[#0f172a] text-slate-200 hover:bg-slate-800"
+        isActive ? "bg-blue-600 text-white" : "bg-[#0f172a] text-slate-200 hover:bg-slate-800"
       }`
     }
   >
@@ -37,7 +37,7 @@ export default function App() {
       </div>
 
       <Routes>
-        <Route path="/" element={<Purchase />} />
+        <Route path="/" element={<Catalog />} />
         <Route path="/purchase" element={<Purchase />} />
         <Route path="/sale" element={<Sale />} />
         <Route path="/stock" element={<Stock />} />
