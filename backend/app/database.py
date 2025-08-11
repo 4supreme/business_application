@@ -1,5 +1,6 @@
+from typing import Generator
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, Session
 
 SQLALCHEMY_DATABASE_URL = "sqlite:///./app.db"
 
@@ -9,13 +10,9 @@ engine = create_engine(
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-def get_db():
-    from fastapi import Depends
-    from sqlalchemy.orm import Session
-    def _get_db():
-        db: Session = SessionLocal()
-        try:
-            yield db
-        finally:
-            db.close()
-    return Depends(_get_db)
+def get_db() -> Generator[Session, None, None]:
+    db: Session = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()

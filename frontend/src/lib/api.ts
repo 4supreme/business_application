@@ -1,3 +1,5 @@
+const API_URL = "http://localhost:8000";
+
 export type Product = {
   id: number;
   name: string;

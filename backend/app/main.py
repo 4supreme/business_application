@@ -1,10 +1,9 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from datetime import date, datetime
 from typing import List
 
-from .database import engine, SessionLocal, get_db
+from .database import engine, get_db
 from .models import Base, Product, Doc, DocItem, StockMove
 from . import schemas
 
@@ -21,17 +20,17 @@ Base.metadata.create_all(bind=engine)
 # ======= Products =======
 
 @app.get("/products", response_model=List[schemas.ProductOut])
-def products(db: Session = SessionLocal()):
+def products(db: Session = Depends(get_db)):
     return db.query(Product).order_by(Product.id).all()
 
 @app.post("/products", response_model=schemas.ProductOut)
-def create_product(body: schemas.ProductCreate, db: Session = SessionLocal()):
+def create_product(body: schemas.ProductCreate, db: Session = Depends(get_db)):
     p = Product(name=body.name, sku=body.sku, unit=body.unit, barcode=body.barcode, qty=0.0, avg_cost=0.0)
     db.add(p); db.commit(); db.refresh(p)
     return p
 
 @app.get("/stock", response_model=List[schemas.ProductOut])
-def stock(db: Session = SessionLocal()):
+def stock(db: Session = Depends(get_db)):
     return db.query(Product).order_by(Product.id).all()
 
 # ======= Docs create (draft) =======
@@ -40,7 +39,7 @@ def _doc_total(items: List[schemas.DocItemIn]) -> float:
     return float(sum(i.qty * i.price for i in items))
 
 @app.post("/purchase", response_model=schemas.DocOut)
-def create_purchase(body: schemas.DocCreate, db: Session = SessionLocal()):
+def create_purchase(body: schemas.DocCreate, db: Session = Depends(get_db)):
     if not body.items:
         raise HTTPException(400, "Add at least one item")
     doc = Doc(type="purchase", date=body.date, partner=body.partner, status="draft", total=_doc_total(body.items))
@@ -48,11 +47,11 @@ def create_purchase(body: schemas.DocCreate, db: Session = SessionLocal()):
     for it in body.items:
         db.add(DocItem(doc_id=doc.id, product_id=it.product_id, qty=it.qty, price=it.price))
     db.commit(); db.refresh(doc)
-    doc.items  # load relationship
+    doc.items
     return doc
 
 @app.post("/sale", response_model=schemas.DocOut)
-def create_sale(body: schemas.DocCreate, db: Session = SessionLocal()):
+def create_sale(body: schemas.DocCreate, db: Session = Depends(get_db)):
     if not body.items:
         raise HTTPException(400, "Add at least one item")
     doc = Doc(type="sale", date=body.date, partner=body.partner, status="draft", total=_doc_total(body.items))
@@ -66,7 +65,7 @@ def create_sale(body: schemas.DocCreate, db: Session = SessionLocal()):
 # ======= Get doc =======
 
 @app.get("/docs/{doc_id}", response_model=schemas.DocOut)
-def get_doc(doc_id: int, db: Session = SessionLocal()):
+def get_doc(doc_id: int, db: Session = Depends(get_db)):
     doc = db.query(Doc).filter(Doc.id == doc_id).first()
     if not doc:
         raise HTTPException(404, "Doc not found")
@@ -75,13 +74,13 @@ def get_doc(doc_id: int, db: Session = SessionLocal()):
 
 # ======= Posting / Unposting =======
 
-def _make_number(db: Session, doc: Doc) -> str:
+def _make_number(doc: Doc) -> str:
     prefix = "P" if doc.type == "purchase" else "S"
     y = doc.date.year
     return f"{prefix}-{y}-{doc.id:06d}"
 
 @app.post("/docs/{doc_id}/post", response_model=schemas.DocOut)
-def post_doc(doc_id: int, db: Session = SessionLocal()):
+def post_doc(doc_id: int, db: Session = Depends(get_db)):
     doc = db.query(Doc).filter(Doc.id == doc_id).first()
     if not doc:
         raise HTTPException(404, "Doc not found")
@@ -90,14 +89,12 @@ def post_doc(doc_id: int, db: Session = SessionLocal()):
 
     items = db.query(DocItem).filter(DocItem.doc_id == doc.id).all()
 
-    # выполнить движения
     if doc.type == "purchase":
         for it in items:
             p: Product = db.query(Product).get(it.product_id)
             if not p:
                 raise HTTPException(400, f"Product {it.product_id} not found")
 
-            # новая средняя себестоимость
             prev_qty = p.qty
             prev_cost = p.avg_cost
             new_qty = prev_qty + it.qty
@@ -118,17 +115,20 @@ def post_doc(doc_id: int, db: Session = SessionLocal()):
             if p.qty < it.qty:
                 raise HTTPException(400, f"Not enough stock for product #{p.id} ({p.name})")
             p.qty = p.qty - it.qty
-            # avg_cost не меняем на продаже
             db.add(StockMove(doc_id=doc.id, product_id=p.id, qty=-it.qty, price=it.price, direction="out"))
 
     doc.status = "posted"
     if not doc.number:
-        doc.number = _make_number(db, doc)
+        doc.number = _make_number(doc)
     db.commit(); db.refresh(doc); doc.items
     return doc
 
+@app.get("/")
+def root():
+    return {"status": "ok"}
+
 @app.post("/docs/{doc_id}/unpost", response_model=schemas.DocOut)
-def unpost_doc(doc_id: int, db: Session = SessionLocal()):
+def unpost_doc(doc_id: int, db: Session = Depends(get_db)):
     doc = db.query(Doc).filter(Doc.id == doc_id).first()
     if not doc:
         raise HTTPException(404, "Doc not found")
@@ -138,14 +138,12 @@ def unpost_doc(doc_id: int, db: Session = SessionLocal()):
     items = db.query(DocItem).filter(DocItem.doc_id == doc.id).all()
 
     if doc.type == "purchase":
-        # обратные движения для закупки + откат средней
         for it in items:
             p: Product = db.query(Product).get(it.product_id)
             if not p:
                 raise HTTPException(400, f"Product {it.product_id} not found")
             if p.qty - it.qty < 0:
                 raise HTTPException(400, f"Cannot unpost: negative stock for product #{p.id}")
-            # откат средней: убираем вклад прихода
             new_qty = p.qty - it.qty
             if new_qty <= 0:
                 p.qty = 0.0

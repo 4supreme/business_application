@@ -1,6 +1,6 @@
 from datetime import date
 from typing import List, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 # ===== Products =====
 class ProductCreate(BaseModel):
@@ -10,15 +10,14 @@ class ProductCreate(BaseModel):
     barcode: Optional[str] = None
 
 class ProductOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     id: int
     name: str
-    sku: Optional[str]
-    unit: Optional[str]
-    barcode: Optional[str]
+    sku: Optional[str] = None
+    unit: Optional[str] = None
+    barcode: Optional[str] = None
     qty: float
     avg_cost: float
-    class Config:
-        orm_mode = True
 
 # ===== Docs =====
 class DocItemIn(BaseModel):
@@ -32,20 +31,18 @@ class DocCreate(BaseModel):
     items: List[DocItemIn]
 
 class DocItemOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     product_id: int
     qty: float
     price: float
-    class Config:
-        orm_mode = True
 
 class DocOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     id: int
     type: str
-    number: Optional[str]
+    number: Optional[str] = None
     date: date
-    partner: Optional[str]
+    partner: Optional[str] = None
     status: str
     total: float
     items: List[DocItemOut]
-    class Config:
-        orm_mode = True
